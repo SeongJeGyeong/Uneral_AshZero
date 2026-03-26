@@ -11,16 +11,7 @@ AAZPlayerState::AAZPlayerState()
 
 void AAZPlayerState::SetReady(bool bReady)
 {
-	if (HasAuthority())
-	{
-		bIsReady = bReady;
-		//OnReadyStateChanged.Broadcast();
-	}
-}
-
-void AAZPlayerState::OnRep_ReadyState()
-{
-	//OnReadyStateChanged.Broadcast();
+	if (HasAuthority()) bIsReady = bReady;
 }
 
 void AAZPlayerState::OnRep_PlayerName()

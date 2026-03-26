@@ -23,9 +23,8 @@ public:
 	void SetReady(bool bReady);
 
 	FOnPlayerStateChanged OnPlayerStateChanged;
+
 protected:
-	UFUNCTION()
-	void OnRep_ReadyState();
 	virtual void OnRep_PlayerName() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

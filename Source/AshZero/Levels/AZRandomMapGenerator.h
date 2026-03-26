@@ -133,6 +133,9 @@ struct FSimulationData
 
 	UPROPERTY()
 	bool bIsEscapeRoom = false;    // 탈출 지점 여부
+
+	UPROPERTY()
+	TArray<int32> ChildIndices;
 };
 
 UCLASS()
@@ -147,46 +150,50 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data For Generate")
 	TObjectPtr<UAZRoomDataAsset> RoomDataAsset;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = "Data For Generate")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data For Generate")
 	TArray<EBossType> BossList;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = "Data For Generate")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data For Generate")
 	TSubclassOf<AActor> DoorClass;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = "Data For Generate")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data For Generate")
 	TSubclassOf<AAZChest> TreasureClass;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = "Data For Generate")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Data For Generate")
 	TSubclassOf<AActor> TeleporterClass;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadWrite, Category = "Data For Generate")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data For Generate")
 	int32 TreasureAmount = 0;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadWrite, Category = "Data For Generate")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data For Generate")
 	int32 TeleportPointAmount = 0;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadWrite, Category = "Data For Generate")
-	int32 Seed = -1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data For Generate")
+	int32 TestSeed = -1;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadWrite, Category = "Simulation Option")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data For Generate")
+	int32 MinSpecialRoomDistance = 4;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data For Generate")
+	int32 MaxRetryCount = 100;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Simulation Option")
 	bool bIsSimulate = false;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = "Simulation Option")
-	TSubclassOf<APawn> SpectorClass;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Simulation Option")
+	TSubclassOf<APawn> SpectatorClass;
 
-	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = "Simulation Option")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Simulation Option")
 	TObjectPtr<UNiagaraSystem> SimulationCube;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Seed)
 	int32 NetSeed = -1;
 
 	UPROPERTY()
-	TArray<FSimulationData> RoomSpawnInfos;
+	FTransform StartPoint = FTransform::Identity;
 
 public:
 	void SetSeedAndGenerate(int32 NewSeed);
-	void SpawnReserveBound(const FRoomData& RoomData, const FTransform& SpawnTransform);
-	void CollectRoomInfo(AAZBaseRoom* SpawnedRoom);
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -206,18 +213,25 @@ protected:
 
 private:
 	void GenerateMap(int32 SeedValue);
-	void SimulateMapGenerate();
+	bool SimulateRoomPlacement();
 	void CreateSimulationData(const FRoomData& RoomData, UAZRoomExitNode* ParentNode, const FTransform& Entrance);
-	void CreateRealMap(int32 ParentID = -1);
+	void FindRoomInfoById(int32 ParentID = -1);
 	void ResetGenerationState();
 
 	void RoomSpawn(FSimulationData& SpawnData, UAZRoomExitNode* EntranceNode);
 	bool TryPlaceRoom(const FRoomData& RoomData, UAZRoomExitNode* ParentNode, const FTransform& ExitTransform);
-	void FinalizeSpecialRooms(TArray<UAZRoomExitNode*>& ExitNodeList, int32 PlacedBossCount, int32 TargetBossCount, int32 PlacedEscapeCount, int32 TargetEscapeCount);
+	void FinalizeBossRooms(TArray<UAZRoomExitNode*>& ExitNodeList, int32 PlacedBossCount, int32 TargetBossCount);
 	bool CanPlaceBossRoom(UAZRoomExitNode* ParentExitNode);
-	bool CanPlaceEscapeRoom(UAZRoomExitNode* ParentExitNode);
+	bool CanPlaceAlterRoom(UAZRoomExitNode* ParentExitNode);
+
+	bool CanAssignEscapePoint(int32 RoomIndex) const;
+	void FinalizeEscapePoints(int32 PlacedEscapeCount, int32 TargetEscapeCount);
 
 	int32 CalculateRoomDistance(int32 FromRoomIndex, int32 ToRoomIndex) const;
+
+	bool ValidateGeneratedMap(int32 TargetRoomCount, int32 TargetBossCount, int32 TargetEscapeCount) const;
+
+	void CollectRoomInfo(AAZBaseRoom* SpawnedRoom, int32 RoomIdx);
 
 	void CloseDoors();
 	void LinkDoors(AAZBaseRoom* Room, const FRoomSpawnContext& Context);
@@ -236,9 +250,13 @@ private:
 	void OnRoomLevelSpawned();
 
 	AAZBaseRoom* FindSpawnedRoomInLevel(ULevel* Level) const;
-	FString GetNetModeString() const;
+
+	bool CheckRoomAABB(const FRoomData& RoomData, const FVector& WorldOffset, const FTransform& ExitTransform);
 
 private:
+	UPROPERTY(Transient)
+	TArray<FSimulationData> RoomSpawnInfos;
+
 	UPROPERTY(Transient)
 	TArray<FSpawnLevelData> RoomLevelAssets;
 
@@ -250,9 +268,6 @@ private:
 
 	UPROPERTY(Transient)
 	FRandomStream RandomStream;
-
-	UPROPERTY(Transient)
-	TArray<TObjectPtr<AActor>> ReserveList;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AAZBaseRoom> StartRoom;
@@ -276,8 +291,8 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UNiagaraComponent>> NiagaraList;
 
-	UPROPERTY()
-	FTransform StartPoint = FTransform::Identity;
+	// 시뮬레이션 중 배치된 룸의 AABB (수학 기반 충돌 검사용)
+	TArray<FBox> PlacedBounds;
 
 	float MinX = TNumericLimits<float>::Max();
 	float MaxX = TNumericLimits<float>::Lowest();
@@ -287,4 +302,6 @@ private:
 	int32 SpawnIdx = 0;
 	int32 NodeIdIdx = 0;
 	bool bSpawnedStartLevel = false;
+
+	int32 DeterminedSeed;
 };

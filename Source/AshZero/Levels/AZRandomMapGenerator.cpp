@@ -1,9 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Levels/AZRandomMapGenerator.h"
 #include "Levels/Rooms/AZBaseRoom.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "Components/BoxComponent.h"
 #include "Interactables/AZChest.h"
 #include "Kismet/GameplayStatics.h"
@@ -11,11 +10,9 @@
 #include "System/GameMode/AZStageGameMode.h"
 #include "NavMesh/NavMeshBoundsVolume.h"
 #include "NavigationSystem.h"
-#include "GameFramework/SpectatorPawn.h"
 #include "Components/BrushComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Engine/LevelStreamingDynamic.h"
-#include "AZSubLevelReserveBound.h"
 #include "Levels/Props/AZDoor.h"
 #include "System/Player/AZPlayerController.h"
 #include "Net/UnrealNetwork.h"
@@ -24,6 +21,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 #include "System/Subsystems/AZSoundManagerSubsystem.h"
+#include "System/AZSessionSubsystem.h"
 #include "Levels/AZRoomExitNode.h"
 #include "Levels/Props/AZSpawnPointComponent.h"
 
@@ -65,31 +63,47 @@ void AAZRandomMapGenerator::OnRep_Seed()
 
 void AAZRandomMapGenerator::GenerateMap(int32 SeedValue)
 {
-	ResetGenerationState();
-
-	const int32 GenerateSeed = (bIsSimulate || Seed > 0) ? Seed : SeedValue;
-	RandomStream.Initialize(GenerateSeed);
-
-	UE_LOG(LogTemp, Warning, TEXT("[MapGen] Seed: %d (%s)"), GenerateSeed, bIsSimulate ? TEXT("Simulate") : (Seed > 0 ? TEXT("Custom") : TEXT("Network")));
-
-	RoomLevelAssets = RoomDataAsset->RoomDataList;
+	const TArray<EBossType> TempBossList = BossList;
+	const int32 BaseSeed = (bIsSimulate || TestSeed > 0) ? TestSeed : SeedValue;
 
 	if (bIsSimulate)
 	{
 		const FVector SpawnLocation = FVector(0.f, 0.f, 25000.f);
-		if (APawn* Spector = GetWorld()->SpawnActor<APawn>(SpectorClass, SpawnLocation, FRotator::ZeroRotator))
+		if (APawn* Spector = GetWorld()->SpawnActor<APawn>(SpectatorClass, SpawnLocation, FRotator::ZeroRotator))
 		{
 			if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
 				PC->Possess(Spector);
 		}
 	}
+	for (int32 Retry = 0; Retry < MaxRetryCount; ++Retry)
+	{
+		ResetGenerationState();
 
-	SimulateMapGenerate();
+		DeterminedSeed = BaseSeed + Retry;
+		UE_LOG(LogTemp, Warning, TEXT("[GenerateMap] Seed: %d"), DeterminedSeed);
+		RandomStream.Initialize(DeterminedSeed);
+		BossList = TempBossList;
+
+		RoomLevelAssets = RoomDataAsset->RoomDataList;
+
+		const bool bSuccess = SimulateRoomPlacement();
+
+		if (bSuccess)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[GenerateMap] ë§µ ìƒì„± ì„±ê³µ. ì‹œë„ íšŸìˆ˜: %d"), Retry + 1);
+			break;
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("[GenerateMap] %díšŒ ì‹¤íŒ¨, %s"), Retry + 1,
+			(Retry + 1 < MaxRetryCount) ? TEXT("ì¬ì‹œì‘") : TEXT("ë§ˆì§€ë§‰ ê²°ê³¼ ë°°ì¹˜"));
+	}
+
+	FindRoomInfoById(INDEX_NONE);
 }
 
-void AAZRandomMapGenerator::SimulateMapGenerate()
+bool AAZRandomMapGenerator::SimulateRoomPlacement()
 {
-	// ½ÃÀÛ ·ë ÈÄº¸ ÇÊÅÍ(Ãâ±¸ 2°³ ÀÌ»ó)
+	// ì‹œì‘ ë£¸ í›„ë³´ í•„í„°(ì¶œêµ¬ 2ê°œ ì´ìƒ)
 	TArray<int32> StartCandidates;
 	StartCandidates.Reserve(RoomLevelAssets.Num());
 
@@ -103,21 +117,25 @@ void AAZRandomMapGenerator::SimulateMapGenerate()
 
 	if (StartCandidates.IsEmpty())
 	{
-		UE_LOG(LogTemp, Error, TEXT("No start room candidate: need at least 2 exits"));
-		return;
+		UE_LOG(LogTemp, Error, TEXT("ì‹œì‘ ë£¸ì˜ ì¶œêµ¬ëŠ” 2ê°œ ì´ìƒì´ì–´ì•¼ í•¨"));
+		return false;
 	}
 
-	// ½ÃÀÛ ·ë °áÁ¤
+	// ì‹œì‘ ë£¸ ê²°ì •
 	const int32 index = StartCandidates[RandomStream.RandRange(0, StartCandidates.Num() - 1)];
 	FSpawnLevelData StartRoomData = RoomLevelAssets[index];
+
+	const int32 TargetTotalRooms = RoomAmount;
 
 	if (--RoomLevelAssets[index].Amount <= 0)
 		RoomLevelAssets.RemoveAtSwap(index);
 
 	--RoomAmount;
 
-	// ½ÃÀÛ ·ë ½Ã¹Ä·¹ÀÌ¼Ç µ¥ÀÌÅÍ »ı¼º
-	SpawnReserveBound(StartRoomData.RoomData, FTransform::Identity);
+	// ì‹œì‘ ë£¸ AABB ë“±ë¡ (TryPlaceRoomì„ ê±°ì¹˜ì§€ ì•Šìœ¼ë¯€ë¡œ ì§ì ‘ ì¶”ê°€)
+	const FBox StartLocalBox(-StartRoomData.RoomData.BoundsExtent, StartRoomData.RoomData.BoundsExtent);
+	const FTransform StartBoxTransform(FQuat::Identity, StartRoomData.RoomData.BoundsOffset);
+	PlacedBounds.Add(StartLocalBox.TransformBy(StartBoxTransform));
 
 	FSimulationData StartData;
 	StartData.RoomData = StartRoomData.RoomData;
@@ -137,18 +155,17 @@ void AAZRandomMapGenerator::SimulateMapGenerate()
 
 	RoomSpawnInfos.Add(StartData);
 
-	// È®Àå¿ë Exit ¸®½ºÆ®
 	TArray<UAZRoomExitNode*> ExitNodeList;
-	ExitNodeList.Reserve(256);
+	ExitNodeList.Reserve(90);
 	ExitNodeList.Append(StartData.ExitNodes);
 
-	// º¸½º/Å»Ãâ ¸ñÇ¥ ¼ö
-	const int32 TargetBossCount = BossList.Num();
+	const int32 ActualBossCount = BossList.Num();
+	const int32 TargetSpecialCount = 3 - ActualBossCount;
 	const int32 TargetEscapeCount = TeleportPointAmount;
 	int32 PlacedBossCount = 0;
+	int32 PlacedSpecialCount = 0;
 	int32 PlacedEscapeCount = 0;
 
-	// ¸ŞÀÎ ·çÇÁ
 	while (RoomAmount > 0 && !ExitNodeList.IsEmpty())
 	{
 		const int32 ExitIdx = RandomStream.RandRange(0, ExitNodeList.Num() - 1);
@@ -160,8 +177,8 @@ void AAZRandomMapGenerator::SimulateMapGenerate()
 		const FTransform ExitTransform = CurrentExitNode->ExitTransform;
 		bool bPlaced = false;
 
-		// Boss ¿ì¼± ¹èÄ¡
-		if (PlacedBossCount < TargetBossCount && CanPlaceBossRoom(CurrentExitNode))
+		// Boss ìš°ì„  ë°°ì¹˜
+		if (PlacedBossCount < ActualBossCount && CanPlaceBossRoom(CurrentExitNode))
 		{
 			if (TryPlaceRoom(RoomDataAsset->BossRoomData.RoomData, CurrentExitNode, ExitTransform))
 			{
@@ -174,23 +191,18 @@ void AAZRandomMapGenerator::SimulateMapGenerate()
 			}
 		}
 
-		// Escape ¹èÄ¡ (º¸½º ¸ğµÎ ¹èÄ¡ ÈÄ)
-		if (!bPlaced && PlacedBossCount >= TargetBossCount && PlacedEscapeCount < TargetEscapeCount)
+		// ëŒ€ì²´ ë£¸ ë°°ì¹˜
+		if (!bPlaced && PlacedBossCount >= ActualBossCount && PlacedSpecialCount < TargetSpecialCount && CanPlaceAlterRoom(CurrentExitNode))
 		{
-			if (CanPlaceEscapeRoom(CurrentExitNode))
+			if (TryPlaceRoom(RoomDataAsset->SpecialRoomData.RoomData, CurrentExitNode, ExitTransform))
 			{
-				if (TryPlaceRoom(RoomDataAsset->SpecialRoomData.RoomData, CurrentExitNode, ExitTransform))
-				{
-					RoomSpawnInfos.Last().bIsEscapeRoom = true;
-					EscapeRoomIndices.Add(RoomSpawnInfos.Num() - 1);
-					PlacedEscapeCount++;
-					ExitNodeList.Append(RoomSpawnInfos.Last().ExitNodes);
-					bPlaced = true;
-				}
+				PlacedSpecialCount++;
+				ExitNodeList.Append(RoomSpawnInfos.Last().ExitNodes);
+				bPlaced = true;
 			}
 		}
 
-		// Normal ·ë ¹èÄ¡
+		// Normal ë£¸ ë°°ì¹˜
 		if (!bPlaced)
 		{
 			const int32 PoolNum = RoomLevelAssets.Num();
@@ -200,7 +212,7 @@ void AAZRandomMapGenerator::SimulateMapGenerate()
 			CandidateIndices.Reserve(PoolNum);
 			for (int32 i = 0; i < PoolNum; ++i) CandidateIndices.Add(i);
 
-			while (!CandidateIndices.IsEmpty() > 0 && !bPlaced)
+			while (!CandidateIndices.IsEmpty() && !bPlaced)
 			{
 				const int32 PickIdx = RandomStream.RandRange(0, CandidateIndices.Num() - 1);
 				const int32 RoomIdx = CandidateIndices[PickIdx];
@@ -209,27 +221,32 @@ void AAZRandomMapGenerator::SimulateMapGenerate()
 				FSpawnLevelData& Candidate = RoomLevelAssets[RoomIdx];
 				if (TryPlaceRoom(Candidate.RoomData, CurrentExitNode, ExitTransform))
 				{
-					if (--Candidate.Amount <= 0)
-						RoomLevelAssets.RemoveAtSwap(RoomIdx);
+					if (--Candidate.Amount <= 0) RoomLevelAssets.RemoveAtSwap(RoomIdx);
 
 					RoomAmount--;
 					ExitNodeList.Append(RoomSpawnInfos.Last().ExitNodes);
 					bPlaced = true;
+
+					// íƒˆì¶œ ì§€ì  ë°°ì¹˜ ì‹œë„
+					const int32 PlacedIndex = RoomSpawnInfos.Num() - 1;
+					if (PlacedEscapeCount < TargetEscapeCount && PlacedIndex > 0 && CanAssignEscapePoint(PlacedIndex))
+					{
+						RoomSpawnInfos.Last().bIsEscapeRoom = true;
+						EscapeRoomIndices.Add(PlacedIndex);
+						PlacedEscapeCount++;
+
+						UE_LOG(LogTemp, Log, TEXT("[SimulateMapGenerate] íƒˆì¶œ ì§€ì  ë°°ì¹˜. ë£¸ %d"), PlacedIndex);
+					}
 				}
 			}
 		}
 	}
 
-	// ºÎÁ·ÇÑ Boss/Escape °­Á¦ ¹èÄ¡(±âÁ¸ ÇÔ¼ö È°¿ëÇÏµÇ ExitNodeList.RemoveAtSwap µîÀ¸·Î Á¤¸® ±ÇÀå)
-	FinalizeSpecialRooms(ExitNodeList, PlacedBossCount, TargetBossCount, PlacedEscapeCount, TargetEscapeCount);
+	// ë¶€ì¡±í•œ ë³´ìŠ¤, íƒˆì¶œ ì§€ì  ê°•ì œ ë°°ì¹˜
+	FinalizeBossRooms(ExitNodeList, PlacedBossCount, ActualBossCount);
+	FinalizeEscapePoints(PlacedEscapeCount, TargetEscapeCount);
 
-	// Reserve cleanup
-	for (AActor* ReserveBound : ReserveList)
-		if (IsValid(ReserveBound)) ReserveBound->Destroy();
-
-	ReserveList.Reset();
-
-	CreateRealMap(INDEX_NONE);
+	return ValidateGeneratedMap(TargetTotalRooms, ActualBossCount, TargetEscapeCount);
 }
 
 void AAZRandomMapGenerator::CreateSimulationData(const FRoomData& RoomData, UAZRoomExitNode* ParentNode, const FTransform& Entrance)
@@ -239,7 +256,7 @@ void AAZRandomMapGenerator::CreateSimulationData(const FRoomData& RoomData, UAZR
 	NewData.ParentExitNode = ParentNode;
 	NewData.RoomData = RoomData;
 
-	// ½ÃÀÛ ·ëÀ¸·ÎºÎÅÍÀÇ °Å¸® °è»ê
+	// ì‹œì‘ ë£¸ìœ¼ë¡œë¶€í„°ì˜ ê±°ë¦¬ ê³„ì‚°
 	if (ParentNode)
 	{
 		const int32 ParentIndex = ParentNode->OwnerIndex;
@@ -247,6 +264,7 @@ void AAZRandomMapGenerator::CreateSimulationData(const FRoomData& RoomData, UAZR
 		{
 			NewData.ParentRoomIndex = ParentIndex;
 			NewData.DistanceFromStart = RoomSpawnInfos[ParentIndex].DistanceFromStart + 1;
+			RoomSpawnInfos[ParentIndex].ChildIndices.Add(NewData.RoomIndex);
 		}
 	}
 
@@ -262,7 +280,7 @@ void AAZRandomMapGenerator::CreateSimulationData(const FRoomData& RoomData, UAZR
 	RoomSpawnInfos.Add(NewData);
 }
 
-void AAZRandomMapGenerator::CreateRealMap(int32 ParentID)
+void AAZRandomMapGenerator::FindRoomInfoById(int32 ParentID)
 {
 	if (!RoomSpawnInfos.IsValidIndex(SpawnIdx)) return;
 
@@ -272,8 +290,7 @@ void AAZRandomMapGenerator::CreateRealMap(int32 ParentID)
 	{
 		FActorSpawnParameters SpawnParam;
 		SpawnParam.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		AAZDoor* Door = GetWorld()->SpawnActor<AAZDoor>(DoorClass, GetTransform(), SpawnParam);
-		if (Door->IsValidLowLevel())
+		if (AAZDoor* Door = GetWorld()->SpawnActor<AAZDoor>(DoorClass, GetTransform(), SpawnParam))
 			Door->SetDoorTrigger(false);
 	}
 
@@ -351,10 +368,10 @@ void AAZRandomMapGenerator::OnRoomLevelSpawned()
 
 	LinkDoors(SpawnedRoom, CompletedContext);
 	LinkAdjacentRoom(SpawnedRoom, CompletedContext);
-	CollectRoomInfo(SpawnedRoom);
+	CollectRoomInfo(SpawnedRoom, CompletedContext.RoomIdx);
 
 	if (SpawnIdx < RoomSpawnInfos.Num())
-		CreateRealMap(CompletedContext.RoomIdx);
+		FindRoomInfoById(CompletedContext.RoomIdx);
 	else
 		GenerateContents();
 }
@@ -408,7 +425,7 @@ void AAZRandomMapGenerator::LinkDoors(AAZBaseRoom* Room, const FRoomSpawnContext
 		{
 			if (!Node || IsValid(Node->AttachedDoor)) continue;
 
-			// À§Ä¡ ºñ±³
+			// ìœ„ì¹˜ ë¹„êµ
 			if (FVector::DistSquared(Node->ExitTransform.GetLocation(), DoorLoc) <= Tolerance)
 			{
 				Node->AttachedDoor = Door;
@@ -456,7 +473,7 @@ void AAZRandomMapGenerator::LinkAdjacentRoom(AAZBaseRoom* Room, const FRoomSpawn
 void AAZRandomMapGenerator::CloseDoors()
 {
 	for (AAZDoor* Door : DoorList)
-		Door->SetDoorTrigger(false);
+		if(IsValid(Door)) Door->SetDoorTrigger(false);
 }
 
 void AAZRandomMapGenerator::GenerateContents()
@@ -482,6 +499,9 @@ void AAZRandomMapGenerator::GenerateContents()
 
 	if (UAZSoundManagerSubsystem* SoundSystem = GetGameInstance()->GetSubsystem<UAZSoundManagerSubsystem>())
 		SoundSystem->PlayBGM(EBGMType::BGM_Field);
+
+	if (UAZSessionSubsystem* SessionSystem = GetGameInstance()->GetSubsystem<UAZSessionSubsystem>())
+		SessionSystem->RandomSeed = DeterminedSeed;
 
 	if (AAZPlayerController* PC = Cast<AAZPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
 	{
@@ -532,7 +552,7 @@ void AAZRandomMapGenerator::UpdateNavMeshBounds()
 	FVector MinPos(MinX, MinY, 0.f);
 	FVector MaxPos(MaxX, MaxY, 0.f);
 	FVector Center = (MinPos + MaxPos) * 0.5f;
-	FVector Extent = (MaxPos - MinPos) / 100.f; // UU -> m ½ºÄÉÀÏ º¯È¯
+	FVector Extent = (MaxPos - MinPos) / 100.f; // UU -> m ìŠ¤ì¼€ì¼ ë³€í™˜
 	Extent.Z = 1.f;
 
 	TArray<AActor*> FoundActors;
@@ -553,36 +573,9 @@ void AAZRandomMapGenerator::UpdateNavMeshBounds()
 	}
 }
 
-void AAZRandomMapGenerator::SpawnReserveBound(const FRoomData& RoomData, const FTransform& SpawnTransform)
-{
-	const FVector CenterLocation =
-		SpawnTransform.GetLocation() +
-		SpawnTransform.GetRotation().RotateVector(RoomData.BoundsOffset);
-
-	FTransform BoxTransform;
-	BoxTransform.SetLocation(CenterLocation);
-	BoxTransform.SetRotation(SpawnTransform.GetRotation());
-	BoxTransform.SetScale3D(FVector::OneVector);
-
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	if (AAZSubLevelReserveBound* Reserver = GetWorld()->SpawnActor<AAZSubLevelReserveBound>(AAZSubLevelReserveBound::StaticClass(), BoxTransform, SpawnParams))
-	{
-		Reserver->RoomName = RoomData.LevelAsset.GetAssetName();
-		Reserver->InitializeReserver(RoomData.BoundsExtent);
-		ReserveList.Add(Reserver);
-	}
-}
-
-void AAZRandomMapGenerator::CollectRoomInfo(AAZBaseRoom* SpawnedRoom)
+void AAZRandomMapGenerator::CollectRoomInfo(AAZBaseRoom* SpawnedRoom, int32 RoomIdx)
 {
 	if (!IsValid(SpawnedRoom)) return;
-
-	UE_LOG(LogTemp, Warning, TEXT("%s: %s, [X: %f, Y: %f, Z: %f]"), 
-		*GetNetModeString(), 
-		*SpawnedRoom->StreamingHandle->GetName(),
-		SpawnedRoom->GetActorLocation().X, SpawnedRoom->GetActorLocation().Y, SpawnedRoom->GetActorLocation().Z);
 
 	if (!bSpawnedStartLevel)
 	{
@@ -608,11 +601,12 @@ void AAZRandomMapGenerator::CollectRoomInfo(AAZBaseRoom* SpawnedRoom)
 		TreasureList.Emplace(ItemPoint->GetComponentTransform());
 	}
 
-	TArray<USceneComponent*> OutTeleportPoints;
-	SpawnedRoom->TeleportPoint->GetChildrenComponents(false, OutTeleportPoints);
-	for (USceneComponent* TeleportPoint : OutTeleportPoints)
+	if (RoomSpawnInfos.IsValidIndex(RoomIdx) && RoomSpawnInfos[RoomIdx].bIsEscapeRoom)
 	{
-		TeleporterList.Emplace(TeleportPoint->GetComponentTransform());
+		TArray<USceneComponent*> OutTeleportPoints;
+		SpawnedRoom->TeleportPoint->GetChildrenComponents(false, OutTeleportPoints);
+		for (USceneComponent* TeleportPoint : OutTeleportPoints)
+			TeleporterList.Emplace(TeleportPoint->GetComponentTransform());
 	}
 }
 
@@ -620,28 +614,41 @@ bool AAZRandomMapGenerator::TryPlaceRoom(const FRoomData& RoomData, UAZRoomExitN
 {
 	const FVector WorldOffset = ExitTransform.GetLocation() + ExitTransform.Rotator().RotateVector(RoomData.BoundsOffset);
 
-	TArray<FHitResult> OutHits;
-	bool bHit = GetWorld()->SweepMultiByChannel(
-		OutHits,
-		WorldOffset,
-		WorldOffset,
-		ExitTransform.GetRotation(),
-		ECollisionChannel::ECC_GameTraceChannel3,
-		FCollisionShape::MakeBox(RoomData.BoundsExtent)
-	);
+	if (!CheckRoomAABB(RoomData, WorldOffset, ExitTransform)) return false;
 
-	if (bHit)
-	{
-		for (const FHitResult& Hit : OutHits)
-			if (Hit.PenetrationDepth > 0.1f) return false;
-	}
+	const FBox LocalBox(-RoomData.BoundsExtent, RoomData.BoundsExtent);
+	const FTransform BoxTransform(ExitTransform.GetRotation(), WorldOffset);
+	PlacedBounds.Add(LocalBox.TransformBy(BoxTransform));
 
-	SpawnReserveBound(RoomData, ExitTransform);
 	CreateSimulationData(RoomData, ParentNode, ExitTransform);
 	return true;
 }
 
-// º¸½º ·ë ¹èÄ¡ °¡´É ¿©ºÎ È®ÀÎ
+bool AAZRandomMapGenerator::CheckRoomAABB(const FRoomData& RoomData, const FVector& WorldOffset, const FTransform& ExitTransform)
+{
+	const FBox LocalBox(-RoomData.BoundsExtent, RoomData.BoundsExtent);
+	const FTransform BoxTransform(ExitTransform.GetRotation(), WorldOffset);
+	const FBox NewAABB = LocalBox.TransformBy(BoxTransform);
+
+	constexpr float Tolerance = 0.05f;
+	for (const FBox& PlacedAABB : PlacedBounds)
+	{
+		// FBox::IntersectëŠ” > ë¹„êµì´ê¸° ë•Œë¬¸ì— ê°’ì´ 0(ì™„ì „íˆ ë§ë‹¿ìŒ)ì´ì–´ë„ ì¶©ëŒ íŒì •
+		const bool bSeparated =
+			(NewAABB.Min.X >= PlacedAABB.Max.X - Tolerance) ||
+			(PlacedAABB.Min.X >= NewAABB.Max.X - Tolerance) ||
+			(NewAABB.Min.Y >= PlacedAABB.Max.Y - Tolerance) ||
+			(PlacedAABB.Min.Y >= NewAABB.Max.Y - Tolerance) ||
+			(NewAABB.Min.Z >= PlacedAABB.Max.Z - Tolerance) ||
+			(PlacedAABB.Min.Z >= NewAABB.Max.Z - Tolerance);
+
+		if (!bSeparated) return false;
+	}
+
+	return true;
+}
+
+// ë³´ìŠ¤ ë£¸ ë°°ì¹˜ ê°€ëŠ¥ ì—¬ë¶€ í™•ì¸
 bool AAZRandomMapGenerator::CanPlaceBossRoom(UAZRoomExitNode* ParentExitNode)
 {
 	if (!ParentExitNode) return false;
@@ -650,49 +657,45 @@ bool AAZRandomMapGenerator::CanPlaceBossRoom(UAZRoomExitNode* ParentExitNode)
 	if (!RoomSpawnInfos.IsValidIndex(ParentRoomIndex)) return false;
 
 	const int32 PredictedDistance = RoomSpawnInfos[ParentRoomIndex].DistanceFromStart + 1;
-	if (PredictedDistance < 4) return false;
+	if (PredictedDistance < MinSpecialRoomDistance) return false;
 
-	// ´Ù¸¥ º¸½º ·ëµé·ÎºÎÅÍÀÇ °Å¸® È®ÀÎ (4Ä­ ÀÌ»ó)
+	// ë‹¤ë¥¸ ë³´ìŠ¤ ë£¸ë“¤ë¡œë¶€í„°ì˜ ê±°ë¦¬ í™•ì¸ (4ì¹¸ ì´ìƒ)
 	for (int32 BossRoomIndex : BossRoomIndices)
 	{
 		const int32 Distance = CalculateRoomDistance(BossRoomIndex, ParentRoomIndex) + 1;
-		if (Distance >= 0 && Distance < 4) return false;
+		if (Distance >= 0 && Distance < MinSpecialRoomDistance) return false;
+	}
+
+	// íƒˆì¶œ ì§€ì  ë£¸ê³¼ì˜ ê±°ë¦¬
+	for (int32 EscapeIdx : EscapeRoomIndices)
+	{
+		const int32 Distance = CalculateRoomDistance(EscapeIdx, ParentRoomIndex) + 1;
+		if (Distance >= 0 && Distance < MinSpecialRoomDistance) return false;
 	}
 
 	return true;
 }
 
-// Å»Ãâ ÁöÁ¡ ¹èÄ¡ °¡´É ¿©ºÎ È®ÀÎ
-bool AAZRandomMapGenerator::CanPlaceEscapeRoom(UAZRoomExitNode* ParentExitNode)
+bool AAZRandomMapGenerator::CanPlaceAlterRoom(UAZRoomExitNode* ParentExitNode)
 {
 	if (!ParentExitNode) return false;
 
-	int32 ParentRoomIndex = ParentExitNode->OwnerIndex;
+	const int32 ParentRoomIndex = ParentExitNode->OwnerIndex;
 	if (!RoomSpawnInfos.IsValidIndex(ParentRoomIndex)) return false;
 
-	const int32 PredictedDistance = RoomSpawnInfos[ParentRoomIndex].DistanceFromStart + 1;
-	if (PredictedDistance < 4) return false;
-
-	// ¸ğµç º¸½º ·ëÀ¸·ÎºÎÅÍÀÇ °Å¸® È®ÀÎ (3Ä­ ÀÌ»ó)
+	// ìŠ¤í˜ì…œ ë£¸ì€ ì¼ë°˜ ë£¸ì´ì§€ë§Œ, ë‹¤ë¥¸ ë³´ìŠ¤ ë£¸ ë°”ë¡œ ì˜†ì— ì—°ë‹¬ì•„ ë°°ì¹˜ë˜ëŠ” ê²ƒì€ ë°©ì§€ (ìµœì†Œ ê±°ë¦¬ 2)
 	for (int32 BossRoomIndex : BossRoomIndices)
 	{
-		int32 Distance = CalculateRoomDistance(BossRoomIndex, ParentRoomIndex) + 1;
-		if (Distance >= 0 && Distance < 4) return false;
-	}
-
-	// ´Ù¸¥ Å»Ãâ ÁöÁ¡µé·ÎºÎÅÍÀÇ °Å¸® È®ÀÎ (3Ä­ ÀÌ»ó)
-	for (int32 EscapeRoomIndex : EscapeRoomIndices)
-	{
-		int32 Distance = CalculateRoomDistance(EscapeRoomIndex, ParentRoomIndex) + 1;
-		if (Distance >= 0 && Distance < 4) return false;
+		const int32 Distance = CalculateRoomDistance(BossRoomIndex, ParentRoomIndex) + 1;
+		if (Distance >= 0 && Distance < 2) return false;
 	}
 
 	return true;
 }
 
-void AAZRandomMapGenerator::FinalizeSpecialRooms(TArray<UAZRoomExitNode*>& ExitNodeList, int32 PlacedBossCount, int32 TargetBossCount, int32 PlacedEscapeCount, int32 TargetEscapeCount)
+void AAZRandomMapGenerator::FinalizeBossRooms(TArray<UAZRoomExitNode*>& ExitNodeList, int32 PlacedBossCount, int32 TargetBossCount)
 {
-	// ³²Àº º¸½º ·ë ¹èÄ¡
+	// ë‚¨ì€ ë³´ìŠ¤ ë£¸ ë°°ì¹˜
 	while (PlacedBossCount < TargetBossCount && !ExitNodeList.IsEmpty())
 	{
 		bool bPlaced = false;
@@ -715,38 +718,67 @@ void AAZRandomMapGenerator::FinalizeSpecialRooms(TArray<UAZRoomExitNode*>& ExitN
 
 		if (!bPlaced)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed to place boss room. Placed: %d, Target: %d"),
-				PlacedBossCount, TargetBossCount);
+			UE_LOG(LogTemp, Warning, TEXT("ë³´ìŠ¤ ë£¸ ë°°ì¹˜ ì‹¤íŒ¨. ë°°ì¹˜ ìˆ˜: %d, ëª©í‘œ ìˆ˜: %d"), PlacedBossCount, TargetBossCount);
 			break;
 		}
 	}
+}
 
-	// Å»Ãâ ·ë °­Á¦ ¹èÄ¡
-	while (PlacedEscapeCount < TargetEscapeCount && !ExitNodeList.IsEmpty())
+bool AAZRandomMapGenerator::CanAssignEscapePoint(int32 RoomIndex) const
+{
+	if (!RoomSpawnInfos.IsValidIndex(RoomIndex)) return false;
+
+	const FSimulationData& Room = RoomSpawnInfos[RoomIndex];
+
+	if (RoomIndex == 0) return false;
+	if (Room.bIsBossRoom) return false;
+	if (Room.bIsEscapeRoom) return false;
+
+	if (Room.DistanceFromStart < MinSpecialRoomDistance) return false;
+
+	for (int32 BossIdx : BossRoomIndices)
 	{
-		bool bPlaced = false;
-		for (int32 i = ExitNodeList.Num() - 1; i >= 0; --i)
-		{
-			UAZRoomExitNode* ExitNode = ExitNodeList[i];
-			if (!CanPlaceEscapeRoom(ExitNode)) continue;
+		const int32 Dist = CalculateRoomDistance(RoomIndex, BossIdx);
+		if (Dist >= 0 && Dist < MinSpecialRoomDistance) return false;
+	}
 
-			if (TryPlaceRoom(RoomDataAsset->SpecialRoomData.RoomData, ExitNode, ExitNode->ExitTransform))
-			{
-				RoomSpawnInfos.Last().bIsEscapeRoom = true;
-				EscapeRoomIndices.Add(RoomSpawnInfos.Num() - 1);
-				PlacedEscapeCount++;
-				ExitNodeList.RemoveAt(i);
-				ExitNodeList.Append(RoomSpawnInfos.Last().ExitNodes);
-				bPlaced = true;
-				break;
-			}
-		}
+	for (int32 EscapeIdx : EscapeRoomIndices)
+	{
+		const int32 Dist = CalculateRoomDistance(RoomIndex, EscapeIdx);
+		if (Dist >= 0 && Dist < MinSpecialRoomDistance) return false;
+	}
 
-		if (!bPlaced)
+	return true;
+}
+
+void AAZRandomMapGenerator::FinalizeEscapePoints(int32 PlacedEscapeCount, int32 TargetEscapeCount)
+{
+	if (PlacedEscapeCount >= TargetEscapeCount) return;
+	UE_LOG(LogTemp, Warning, TEXT("FinalizeEscapePoints"));
+
+	// ëª¨ë“  ì¼ë°˜ ë£¸ ì¸ë±ìŠ¤ë¥¼ ì‹œì‘ ê±°ë¦¬ ì—­ìˆœìœ¼ë¡œ ì •ë ¬ (ë¨¼ ê³³ë¶€í„° ë°°ì •)
+	TArray<int32> Candidates;
+	for (int32 i = 1; i < RoomSpawnInfos.Num(); ++i) // ì‹œì‘ ë£¸(0) ì œì™¸
+	{
+		const FSimulationData& Room = RoomSpawnInfos[i];
+		if (!Room.bIsBossRoom && !Room.bIsEscapeRoom) Candidates.Add(i);
+	}
+
+	// ì‹œì‘ ë£¸ì—ì„œ ë¨¼ ìˆœì„œë¡œ ì •ë ¬ (ê±°ë¦¬ ì œì•½ ë§Œì¡± í™•ë¥  ë†’ìŒ)
+	Candidates.Sort([this](int32 A, int32 B)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[MapGen] Failed to force-place escape room. Placed: %d / %d"),
-				PlacedEscapeCount, TargetEscapeCount);
-			break;
+			return RoomSpawnInfos[A].DistanceFromStart > RoomSpawnInfos[B].DistanceFromStart;
+		});
+
+	for (int32 CandIdx : Candidates)
+	{
+		if (PlacedEscapeCount >= TargetEscapeCount) break;
+
+		if (CanAssignEscapePoint(CandIdx))
+		{
+			RoomSpawnInfos[CandIdx].bIsEscapeRoom = true;
+			EscapeRoomIndices.Add(CandIdx);
+			PlacedEscapeCount++;
 		}
 	}
 }
@@ -757,7 +789,7 @@ int32 AAZRandomMapGenerator::CalculateRoomDistance(int32 FromRoomIndex, int32 To
 	if (!RoomSpawnInfos.IsValidIndex(FromRoomIndex) || !RoomSpawnInfos.IsValidIndex(ToRoomIndex))
 		return -1;
 
-	// BFS (¾ç¹æÇâ Å½»ö)
+	// BFS (ì–‘ë°©í–¥ íƒìƒ‰)
 	TQueue<int32> Queue;
 	TMap<int32, int32> Distances;
 	TSet<int32> Visited;
@@ -773,34 +805,110 @@ int32 AAZRandomMapGenerator::CalculateRoomDistance(int32 FromRoomIndex, int32 To
 
 		if (CurrentRoom == ToRoomIndex)	return Distances[CurrentRoom];
 
-		// ºÎ¸ğ ·ë Å½»ö
+		const int32 CurrentDist = Distances[CurrentRoom];
+
+		// ë¶€ëª¨ ë£¸ íƒìƒ‰
 		if (RoomSpawnInfos[CurrentRoom].ParentExitNode)
 		{
 			int32 ParentIndex = RoomSpawnInfos[CurrentRoom].ParentExitNode->OwnerIndex;
 			if (!Visited.Contains(ParentIndex))
 			{
 				Visited.Add(ParentIndex);
-				Distances.Add(ParentIndex, Distances[CurrentRoom] + 1);
+				Distances.Add(ParentIndex, CurrentDist + 1);
 				Queue.Enqueue(ParentIndex);
 			}
 		}
 
-		// ÀÚ½Ä ·ë Å½»ö
-		for (int32 i = 0; i < RoomSpawnInfos.Num(); ++i)
+		// ìì‹ ë£¸ íƒìƒ‰
+		for (int32 ChildIndex : RoomSpawnInfos[CurrentRoom].ChildIndices)
 		{
-			if (Visited.Contains(i)) continue;
-
-			if (RoomSpawnInfos[i].ParentExitNode &&
-				RoomSpawnInfos[i].ParentExitNode->OwnerIndex == CurrentRoom)
+			if (!Visited.Contains(ChildIndex))
 			{
-				Visited.Add(i);
-				Distances.Add(i, Distances[CurrentRoom] + 1);
-				Queue.Enqueue(i);
+				Visited.Add(ChildIndex);
+				Distances.Add(ChildIndex, CurrentDist + 1);
+				Queue.Enqueue(ChildIndex);
 			}
 		}
 	}
 
-	return -1; // ¿¬°áµÇÁö ¾ÊÀ½
+	return -1; // ì—°ê²°ë˜ì§€ ì•ŠìŒ
+}
+
+bool AAZRandomMapGenerator::ValidateGeneratedMap(int32 TargetRoomCount, int32 TargetBossCount, int32 TargetEscapeCount) const
+{
+	bool bValid = true;
+
+	const int32 ActualRoomCount = RoomSpawnInfos.Num();
+	if (ActualRoomCount < TargetRoomCount)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Validate] ë£¸: %d / %d"), ActualRoomCount, TargetRoomCount);
+		bValid = false;
+	}
+
+	if (BossRoomIndices.Num() < TargetBossCount)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Validate] ë³´ìŠ¤ë£¸: %d / %d"), BossRoomIndices.Num(), TargetBossCount);
+		bValid = false;
+	}
+
+	if (EscapeRoomIndices.Num() < TargetEscapeCount)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Validate] íƒˆì¶œ ì§€ì : %d / %d"), EscapeRoomIndices.Num(), TargetEscapeCount);
+		bValid = false;
+	}
+
+	// ë³´ìŠ¤ ê°„ ê±°ë¦¬ ê²€ì¦
+	for (int32 i = 0; i < BossRoomIndices.Num(); ++i)
+	{
+		const int32 BossIdx = BossRoomIndices[i];
+
+		if (RoomSpawnInfos.IsValidIndex(BossIdx) && RoomSpawnInfos[BossIdx].DistanceFromStart < MinSpecialRoomDistance)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Validate] ë³´ìŠ¤ %dì´ ì‹œì‘ ì§€ì ê³¼ ë„ˆë¬´ ê°€ê¹Œì›€(ê±°ë¦¬ %d)"), BossIdx, RoomSpawnInfos[BossIdx].DistanceFromStart);
+			bValid = false;
+		}
+
+		for (int32 j = i + 1; j < BossRoomIndices.Num(); ++j)
+		{
+			const int32 Dist = CalculateRoomDistance(BossIdx, BossRoomIndices[j]);
+			if (Dist >= 0 && Dist < MinSpecialRoomDistance)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Validate] ë³´ìŠ¤ %dê³¼ ë³´ìŠ¤ %dê°€ ë„ˆë¬´ ê°€ê¹Œì›€(ê±°ë¦¬ %d)"), BossIdx, BossRoomIndices[j], Dist);
+				bValid = false;
+			}
+		}
+
+		for (int32 EscapeIdx : EscapeRoomIndices)
+		{
+			const int32 Dist = CalculateRoomDistance(BossIdx, EscapeIdx);
+			if (Dist >= 0 && Dist < MinSpecialRoomDistance)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Validate] ë³´ìŠ¤ %dê³¼ íƒˆì¶œ ì§€ì  %dì´ ë„ˆë¬´ ê°€ê¹Œì›€(ê±°ë¦¬ %d)"), BossIdx, EscapeIdx, Dist);
+				bValid = false;
+			}
+		}
+	}
+
+	// íƒˆì¶œ ì§€ì  ê°„ ê±°ë¦¬ ê²€ì¦
+	for (int32 i = 0; i < EscapeRoomIndices.Num(); ++i)
+	{
+		for (int32 j = i + 1; j < EscapeRoomIndices.Num(); ++j)
+		{
+			const int32 Dist = CalculateRoomDistance(EscapeRoomIndices[i], EscapeRoomIndices[j]);
+			if (Dist >= 0 && Dist < MinSpecialRoomDistance)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Validate] íƒˆì¶œ ì§€ì  %dì´ íƒˆì¶œ ì§€ì  %dê³¼ ë„ˆë¬´ ê°€ê¹Œì›€(ê±°ë¦¬ %d)"), EscapeRoomIndices[i], EscapeRoomIndices[j], Dist);
+				bValid = false;
+			}
+		}
+	}
+
+	if (bValid)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Validate] ê²€ì¦ ì„±ê³µ. Rooms:%d Boss:%d Escape:%d"), ActualRoomCount, BossRoomIndices.Num(), EscapeRoomIndices.Num());
+	}
+
+	return bValid;
 }
 
 void AAZRandomMapGenerator::ResetGenerationState()
@@ -819,13 +927,10 @@ void AAZRandomMapGenerator::ResetGenerationState()
 	RoomSpawnInfos.Reset();
 	BossRoomIndices.Reset();
 	EscapeRoomIndices.Reset();
+	PlacedBounds.Reset();
 	DoorList.Reset();
 	TreasureList.Reset();
 	TeleporterList.Reset();
-
-	for (AActor* Reserve : ReserveList)
-		if (IsValid(Reserve)) Reserve->Destroy();
-	ReserveList.Reset();
 
 	for (UNiagaraComponent* Niagara : NiagaraList)
 		if (IsValid(Niagara)) Niagara->DestroyComponent();
@@ -845,17 +950,4 @@ void AAZRandomMapGenerator::CreateSimulationBox(const FVector& Location, const F
 		NiagaraComp->SetVariableVec2(TEXT("SpriteSize"), SpriteSize);
 		NiagaraList.Add(NiagaraComp);
 	}
-}
-
-FString AAZRandomMapGenerator::GetNetModeString() const
-{
-	FString ModeMsg;
-	switch (GetWorld()->GetNetMode())
-	{
-	case NM_Client:          return TEXT("Client");
-	case NM_DedicatedServer: return TEXT("DedicatedServer");
-	case NM_ListenServer:    return TEXT("ListenServer");
-	default:                 return TEXT("Standalone");
-	}
-	return ModeMsg;
 }
