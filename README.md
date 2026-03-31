@@ -34,6 +34,7 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
 ## 2. 대화 & 퀘스트 시스템
 <details>
 <summary><b>보기</b></summary>
+  https://github.com/SeongJeGyeong/Uneral_AshZero/blob/54699bc9d0710935a465b5e93cbd075ba487865c/Source/AshZero/System/Subsystems/AZQuestManagerSubsystem.h#L3-L50
 </details>
 
 ## 3. 멀티플레이 동기화
