@@ -112,6 +112,101 @@ void SAZQuestEditorPanel::Construct(const FArguments& InArgs)
     RefreshQuestList();
 }
 
+void SAZQuestEditorPanel::OpenQuestEditor(EQuestEditorMode Mode, FName QuestRowName)
+{
+    if (QuestEditorObject != nullptr)
+    {
+        if (QuestEditorObject->IsRooted()) QuestEditorObject->RemoveFromRoot();
+        QuestEditorObject = nullptr;
+    }
+
+    QuestEditorObject = NewObject<UAZQuestCreationObject>();
+    if (!QuestEditorObject->IsRooted())
+    {
+        QuestEditorObject->AddToRoot();
+    }
+
+    if (Mode == EQuestEditorMode::Edit)
+    {
+        PrevTag = QuestRowName;
+        LoadQuestDataToEditorObject(QuestRowName);
+    }
+    else
+    {
+        PrevTag = NAME_None;
+    }
+
+    FText TitleText = (Mode == EQuestEditorMode::Create) ?
+        FText::FromString(TEXT("Create New Quest")) : FText::FromString(TEXT("Modify Quest"));
+
+    FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+
+    FDetailsViewArgs DetailsArgs;
+    DetailsArgs.bAllowSearch = false;
+    DetailsArgs.bHideSelectionTip = true;
+    DetailsArgs.NotifyHook = nullptr;
+
+    TSharedPtr<IDetailsView> DetailsView = PropertyEditorModule.CreateDetailView(DetailsArgs);
+    DetailsView->SetObject(QuestEditorObject);
+
+    TSharedRef<SWindow> NewQuestWindow = SNew(SWindow)
+        .Title(TitleText)
+        .ClientSize(FVector2D(500, 600))
+        .SupportsMaximize(false)
+        .SupportsMinimize(false)
+        .HasCloseButton(true)
+        [
+            SNew(SVerticalBox)
+                + SVerticalBox::Slot()
+                .FillHeight(1.0f)
+                [
+                    DetailsView.ToSharedRef()
+                ]
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(10)
+                .HAlign(HAlign_Right)
+                [
+                    SNew(SButton)
+                        .Text(TitleText)
+                        .OnClicked(this,
+                            Mode == EQuestEditorMode::Create
+                            ? &SAZQuestEditorPanel::OnCreateQuest
+                            : &SAZQuestEditorPanel::OnModifyQuest)
+                ]
+        ];
+
+    // 모달 창이 생성되기 전에 할당해야함
+    QuestCreateWindow = NewQuestWindow;
+
+    TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+    if (ParentWindow.IsValid())
+    {
+        // 모달 창으로 띄울 경우 부모 창은 모달 창이 사라지기 전까지 멈춤(코드 포함)
+        FSlateApplication::Get().AddModalWindow(NewQuestWindow, ParentWindow);
+    }
+    else
+    {
+        // 부모를 못 찾을 경우 일반 창으로 (에디터 전체에 대해 모달)
+        GEditor->EditorAddModalWindow(NewQuestWindow);
+    }
+}
+
+TSharedRef<ITableRow> SAZQuestEditorPanel::OnGenerateQuestRow(TSharedPtr<FQuestListItem> QuestItem, const TSharedRef<STableViewBase>& OwnerTable)
+{
+    return SNew(STableRow<TSharedPtr<FQuestListItem>>, OwnerTable)
+        [
+            SNew(STextBlock)
+                .Text(FText::Format(
+                    FText::FromString("{0}  {1}"),
+                    FText::FromName(QuestItem->QuestID),
+                    FText::FromName(QuestItem->QuestName)
+                ))
+        ];
+}
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 FReply SAZQuestEditorPanel::OnOpenQuestCreateWindow()
 {
     OpenQuestEditor(EQuestEditorMode::Create);
@@ -146,9 +241,7 @@ void SAZQuestEditorPanel::RefreshQuestList()
     QuestRows.Empty();
 
     if (!QuestDataTable)
-    {
         QuestDataTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/Blueprints/Data/DataTables/DT_QuestList.DT_QuestList"));
-    }
 
     if (!QuestDataTable) return;
 
@@ -166,108 +259,7 @@ void SAZQuestEditorPanel::RefreshQuestList()
     }
 
     if (QuestListView.IsValid())
-    {
         QuestListView->RequestListRefresh();
-    }
-}
-
-TSharedRef<ITableRow> SAZQuestEditorPanel::OnGenerateQuestRow(TSharedPtr<FQuestListItem> QuestItem, const TSharedRef<STableViewBase>& OwnerTable)
-{
-    return SNew(STableRow<TSharedPtr<FQuestListItem>>, OwnerTable)
-        [
-            SNew(STextBlock)
-                .Text(FText::Format(
-                    FText::FromString("{0}  {1}"),
-                    FText::FromName(QuestItem->QuestID),
-                    FText::FromName(QuestItem->QuestName)
-                ))
-        ];
-}
-
-void SAZQuestEditorPanel::OpenQuestEditor(EQuestEditorMode Mode, FName QuestRowName)
-{
-    if (QuestEditorObject != nullptr)
-    {
-        if (QuestEditorObject->IsRooted()) QuestEditorObject->RemoveFromRoot();
-        QuestEditorObject = nullptr;
-    }
-
-    // 1. 입력을 받을 데이터 객체 생성
-    QuestEditorObject = NewObject<UAZQuestCreationObject>();
-    if (!QuestEditorObject->IsRooted())
-    {
-        QuestEditorObject->AddToRoot(); //GC 방지
-    }
-
-    if (Mode == EQuestEditorMode::Edit)
-    {
-        PrevTag = QuestRowName;
-        LoadQuestDataToEditorObject(QuestRowName);
-    }
-    else
-    {
-        PrevTag = NAME_None;
-    }
-
-    FText TitleText = (Mode == EQuestEditorMode::Create) ? 
-        FText::FromString(TEXT("Create New Quest")) : FText::FromString(TEXT("Modify Quest"));
-
-    // 2. 창 생성을 위한 위젯 구성
-    FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-
-    FDetailsViewArgs DetailsArgs;
-    DetailsArgs.bAllowSearch = false;
-    DetailsArgs.bHideSelectionTip = true;
-    DetailsArgs.NotifyHook = nullptr;
-
-    TSharedPtr<IDetailsView> DetailsView = PropertyEditorModule.CreateDetailView(DetailsArgs);
-    DetailsView->SetObject(QuestEditorObject);
-
-    // 3. 팝업 윈도우 생성
-    TSharedRef<SWindow> NewQuestWindow = SNew(SWindow)
-        .Title(TitleText)
-        .ClientSize(FVector2D(500, 600))
-        .SupportsMaximize(false)
-        .SupportsMinimize(false)
-        .HasCloseButton(true)
-        [
-            SNew(SVerticalBox)
-                + SVerticalBox::Slot()
-                .FillHeight(1.0f)
-                [
-                    DetailsView.ToSharedRef()
-                ]
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(10)
-                .HAlign(HAlign_Right)
-                [
-                    SNew(SButton)
-                        .Text(TitleText)
-                        .OnClicked(this, 
-                            Mode == EQuestEditorMode::Create
-                            ? &SAZQuestEditorPanel::OnCreateQuest
-                            : &SAZQuestEditorPanel::OnModifyQuest)
-                ]
-        ];
-
-    // 모달 창이 생성되기 전에 할당해야함
-    QuestCreateWindow = NewQuestWindow;
-
-    // 1. 부모 윈도우 찾기 (현재 패널이 속한 창)
-    TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
-
-    // 모달 창으로 띄우기
-    // 모달 창으로 띄울 경우 부모 창은 모달 창이 사라지기 전까지 멈춤(코드 포함)
-    if (ParentWindow.IsValid())
-    {
-        FSlateApplication::Get().AddModalWindow(NewQuestWindow, ParentWindow);
-    }
-    else
-    {
-        // 부모를 못 찾을 경우 일반 창으로 (에디터 전체에 대해 모달)
-        GEditor->EditorAddModalWindow(NewQuestWindow);
-    }
 }
 
 FReply SAZQuestEditorPanel::OnCreateQuest()
@@ -372,7 +364,6 @@ void SAZQuestEditorPanel::LoadQuestDataToEditorObject(FName RowName)
     if (!QuestDataTable) return;
 
     FAZQuest* QuestRow = QuestDataTable->FindRow<FAZQuest>(RowName, TEXT("QuestEdit"));
-
     if (!QuestRow) return;
 
     UDataTable* DialogTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/Blueprints/Data/DataTables/DT_Dialog.DT_Dialog"));
@@ -518,5 +509,3 @@ FAZQuest SAZQuestEditorPanel::SetQuestInfo()
 
     return QuestRow;
 }
-
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
