@@ -11,21 +11,21 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
 <details>
   <summary><b>보기</b></summary>
   <details>
-    <summary><b>AZRandomMapGenerator</b></summary>
+    <summary><b>맵 생성기</b></summary>
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/014f91ee6dc12390553a37b7e792901cab6f8436/Source/AshZero/Levels/AZRandomMapGenerator.h#L1-L307
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/014f91ee6dc12390553a37b7e792901cab6f8436/Source/AshZero/Levels/AZRandomMapGenerator.cpp#L1-L953
   </details>
   <details>
-    <summary><b>StartMapGenerate</b></summary>
+    <summary><b>호스트 맵 생성 시작 함수</b></summary>
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/014f91ee6dc12390553a37b7e792901cab6f8436/Source/AshZero/System/Player/AZPlayerController.cpp#L662-L676
   </details>
   <details>
-    <summary><b>AZBaseRoom</b></summary>
+    <summary><b>룸 액터</b></summary>
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/014f91ee6dc12390553a37b7e792901cab6f8436/Source/AshZero/Levels/Rooms/AZBaseRoom.h#L3-L98
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/014f91ee6dc12390553a37b7e792901cab6f8436/Source/AshZero/Levels/Rooms/AZBaseRoom.cpp#L4-L295
   </details>
   <details>
-    <summary><b>Asset Action Utility</b></summary>
+    <summary><b>에셋 액션 유틸리티</b></summary>
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/014f91ee6dc12390553a37b7e792901cab6f8436/Source/AZEditor/Public/AZRoomDataActionUtility.h#L3-L23
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/014f91ee6dc12390553a37b7e792901cab6f8436/Source/AZEditor/Private/AZRoomDataActionUtility.cpp#L4-L126
   </details>
@@ -33,8 +33,22 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
 
 ## 2. 대화 & 퀘스트 시스템
 <details>
-<summary><b>보기</b></summary>
-  https://github.com/SeongJeGyeong/Uneral_AshZero/blob/54699bc9d0710935a465b5e93cbd075ba487865c/Source/AshZero/System/Subsystems/AZQuestManagerSubsystem.h#L3-L50
+  <summary><b>보기</b></summary>
+  <details>
+    <summary><b>퀘스트 매니저</b></summary>
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AshZero/System/Subsystems/AZQuestManagerSubsystem.h#L3-L50
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AshZero/System/Subsystems/AZQuestManagerSubsystem.cpp#L4-L212
+  </details>
+  <details>
+    <summary><b>퀘스트 목표 컴포넌트</b></summary>
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AshZero/Components/AZQuestObjectiveComponent.h#L3-L37
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AshZero/Components/AZQuestObjectiveComponent.cpp#L3-L60
+  </details>
+  <details>
+    <summary><b>퀘스트 에디터</b></summary>
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AZEditor/Public/SAZQuestEditorPanel.h#L3-L74
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AZEditor/Private/SAZQuestEditorPanel.cpp#L4-L522
+  </details>
 </details>
 
 ## 3. 멀티플레이 동기화
