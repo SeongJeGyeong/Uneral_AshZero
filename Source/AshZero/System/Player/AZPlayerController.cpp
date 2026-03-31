@@ -873,17 +873,10 @@ void AAZPlayerController::ApplySaveData(const FAZPlayerSaveData& SaveData)
 
 void AAZPlayerController::CreateWarpWidget()
 {
-	if (WarpWidget || !WarpWidgetClass)
-	{
-		return;
-	}
+	if (WarpWidget || !WarpWidgetClass)	return;
 
 	WarpWidget = CreateWidget<UAZExitUI>(this, WarpWidgetClass);
-	if (WarpWidget)
-	{
-		WarpWidget->AddToViewport(30);
-		//WarpWidget->SetVisibility(ESlateVisibility::Hidden);
-	}
+	if (WarpWidget)	WarpWidget->AddToViewport(30);
 }
 
 void AAZPlayerController::RemoveWarpWidget()
@@ -894,17 +887,13 @@ void AAZPlayerController::RemoveWarpWidget()
 void AAZPlayerController::ShowWarpUI(bool bShow)
 {
 	if (WarpWidget)
-	{
 		WarpWidget->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
-	}
 }
 
 void AAZPlayerController::UpdateWarpProgress(float Progress)
 {
 	if (WarpWidget)
-	{
 		WarpWidget->SetPercent(Progress);
-	}
 }
 
 void AAZPlayerController::OnRep_IsSaveLoaded()

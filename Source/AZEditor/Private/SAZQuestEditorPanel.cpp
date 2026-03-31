@@ -150,10 +150,7 @@ void SAZQuestEditorPanel::RefreshQuestList()
         QuestDataTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/Blueprints/Data/DataTables/DT_QuestList.DT_QuestList"));
     }
 
-    if (!QuestDataTable)
-    {
-        return;
-    }
+    if (!QuestDataTable) return;
 
     for (const auto& Pair : QuestDataTable->GetRowMap())
     {

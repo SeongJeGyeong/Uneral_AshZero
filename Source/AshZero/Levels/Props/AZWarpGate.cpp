@@ -188,10 +188,7 @@ void AAZWarpGate::WarpFinished(UNiagaraComponent* FinishedComponent)
 
 void AAZWarpGate::CreateWarpWidget_Multicast_Implementation()
 {
-	if (!GetWorld())
-	{
-		return;
-	}
+	if (!GetWorld()) return;
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(PC))
