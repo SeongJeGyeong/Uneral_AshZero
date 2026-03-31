@@ -47,7 +47,7 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
   <details>
     <summary><b>퀘스트 에디터</b></summary>
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AZEditor/Public/SAZQuestEditorPanel.h#L3-L74
-    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AZEditor/Private/SAZQuestEditorPanel.cpp#L4-L522
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/661ee93c884fcae890ce007e20e912154c798a3f/Source/AZEditor/Private/SAZQuestEditorPanel.cpp#L1-L511
   </details>
 </details>
 
