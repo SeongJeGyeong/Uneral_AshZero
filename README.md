@@ -64,7 +64,24 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
 
 ## 3. 멀티플레이 동기화
 <details>
-<summary><b>보기</b></summary>
+  <summary><b>보기</b></summary>
+    <details>
+      <summary><b>세션 시스템</b></summary>
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/System/AZSessionSubsystem.h#L3-L85
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/System/AZSessionSubsystem.cpp#L4-L407
+    </details>
+    <details>
+      <summary><b>세션 로비</b></summary>
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/UI/Level/Lobby/AZLobbyUI.h#L3-L40
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/UI/Level/Lobby/AZLobbyUI.cpp#L3-L59
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/UI/Level/Lobby/AZSessionItem.h#L3-L43
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/UI/Level/Lobby/AZSessionItem.cpp#L4-L37
+    </details>
+    <details>
+      <summary><b>파티 창</b></summary>
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/UI/Level/Lobby/AZPartyUI.h#L3-L105
+      https://github.com/SeongJeGyeong/Uneral_AshZero/blob/a93c409c47cfaf8bdbb14e5ce7b2ec6dc3e2dc3f/Source/AshZero/UI/Level/Lobby/AZPartyUI.cpp#L4-L175
+    </details>
 </details>
 
 ## 4. 시네마틱 & 로딩 스크린
