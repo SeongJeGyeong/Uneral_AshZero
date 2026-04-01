@@ -50,7 +50,20 @@ public:
     UPROPERTY(EditAnywhere, Category = "Dialog", meta = (DisplayName = "퀘스트 완료"))
     TArray<FAZDialogRow> DialogsAfterComplete;
 
-    virtual void PostEditChangeProperty(FPropertyChangedEvent& Event) override;
+#if WITH_EDITOR
 
+    virtual void PostEditChangeProperty(FPropertyChangedEvent& Event) override;
     TArray<FAZDialogRow>& GetDialogRowsForType(EDialogType Type);
+
+private:
+    TArray<TArray<FAZDialogRow>*> GetAllDialogArrays();
+
+    template<typename Func>
+    void ForEachDialogRow(Func&& Predicate)
+    {
+        for (TArray<FAZDialogRow>* Arr : GetAllDialogArrays())
+            for (FAZDialogRow& Row : *Arr)
+                Predicate(Row);
+    }
+#endif
 };

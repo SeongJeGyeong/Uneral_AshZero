@@ -7,97 +7,25 @@ void UAZQuestCreationObject::PostEditChangeProperty(FPropertyChangedEvent& Event
 {
 	Super::PostEditChangeProperty(Event);
 
-    if (!Event.Property)
-    {
-        return;
-    }
+    if (!Event.Property)        return;
 
     const FName PropertyName = Event.Property->GetFName();
 
-    // bHasChoices가 바뀌었을 때
     if (PropertyName == GET_MEMBER_NAME_CHECKED(FAZDialogRow, bHasChoices))
     {
-        for (FAZDialogRow& Row : DialogsBeforeAccept)
-        {
-            if (!Row.bHasChoices && Row.Choices.Num() > 0)
+        ForEachDialogRow([](FAZDialogRow& Row)
             {
-                Row.Choices.Empty();
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsAfterAccept)
-        {
-            if (!Row.bHasChoices && Row.Choices.Num() > 0)
-            {
-                Row.Choices.Empty();
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsAfterDecline)
-        {
-            if (!Row.bHasChoices && Row.Choices.Num() > 0)
-            {
-                Row.Choices.Empty();
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsInProgress)
-        {
-            if (!Row.bHasChoices && Row.Choices.Num() > 0)
-            {
-                Row.Choices.Empty();
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsAfterComplete)
-        {
-            if (!Row.bHasChoices && Row.Choices.Num() > 0)
-            {
-                Row.Choices.Empty();
-            }
-        }
+                if (!Row.bHasChoices && Row.Choices.Num() > 0)
+                    Row.Choices.Empty();
+            });
     }
-    if (PropertyName == GET_MEMBER_NAME_CHECKED(FAZDialogRow, Speaker))
+    else if (PropertyName == GET_MEMBER_NAME_CHECKED(FAZDialogRow, Speaker))
     {
-        for (FAZDialogRow& Row : DialogsBeforeAccept)
-        {
-            if (Row.Speaker != ESpeakerType::Custom)
+        ForEachDialogRow([](FAZDialogRow& Row)
             {
-                Row.CustomSpeakerTag = FGameplayTag::EmptyTag;
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsAfterAccept)
-        {
-            if (Row.Speaker != ESpeakerType::Custom)
-            {
-                Row.CustomSpeakerTag = FGameplayTag::EmptyTag;
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsAfterDecline)
-        {
-            if (Row.Speaker != ESpeakerType::Custom)
-            {
-                Row.CustomSpeakerTag = FGameplayTag::EmptyTag;
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsInProgress)
-        {
-            if (Row.Speaker != ESpeakerType::Custom)
-            {
-                Row.CustomSpeakerTag = FGameplayTag::EmptyTag;
-            }
-        }
-
-        for (FAZDialogRow& Row : DialogsAfterComplete)
-        {
-            if (Row.Speaker != ESpeakerType::Custom)
-            {
-                Row.CustomSpeakerTag = FGameplayTag::EmptyTag;
-            }
-        }
+                if (Row.Speaker != ESpeakerType::Custom)
+                    Row.CustomSpeakerTag = FGameplayTag::EmptyTag;
+            });
     }
 }
 
@@ -105,20 +33,21 @@ TArray<FAZDialogRow>& UAZQuestCreationObject::GetDialogRowsForType(EDialogType T
 {
     switch (Type)
     {
-    case EDialogType::BeforeAcceptQuest:
-        return DialogsBeforeAccept;
-    case EDialogType::InProgressQuest:
-        return DialogsInProgress;
-    case EDialogType::CompletedQuest:
-        return DialogsAfterComplete;
-    case EDialogType::AcceptQuest:
-        return DialogsAfterAccept;
-    case EDialogType::DeclineQuest:
-        return DialogsAfterDecline;
-    default:
-        break;
+    case EDialogType::BeforeAcceptQuest: return DialogsBeforeAccept;
+    case EDialogType::InProgressQuest: return DialogsInProgress;
+    case EDialogType::CompletedQuest: return DialogsAfterComplete;
+    case EDialogType::AcceptQuest: return DialogsAfterAccept;
+    case EDialogType::DeclineQuest: return DialogsAfterDecline;
+    default: return DialogsBeforeAccept;
     }
+}
 
-    return DialogsBeforeAccept;
+TArray<TArray<FAZDialogRow>*> UAZQuestCreationObject::GetAllDialogArrays()
+{
+    return { &DialogsBeforeAccept,
+             &DialogsAfterAccept,
+             &DialogsAfterDecline,
+             &DialogsInProgress,
+             &DialogsAfterComplete };
 }
 #endif

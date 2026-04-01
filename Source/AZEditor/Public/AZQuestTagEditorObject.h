@@ -16,6 +16,4 @@ class AZEDITOR_API UAZQuestTagEditorObject : public UObject
 public:
     UPROPERTY(EditAnywhere, Category = "Quest")
     FGameplayTagContainer QuestTags;
-
-    void GetQuestTags(TArray<FGameplayTag>& OutTags);
 };

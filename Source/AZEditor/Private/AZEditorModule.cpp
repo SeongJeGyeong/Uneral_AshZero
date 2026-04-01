@@ -24,8 +24,11 @@ void FAZEditor::StartupModule()
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&AZBagShapeDetails::MakeInstance)
 	);
 
+
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(QuestEditorTabName,
-		FOnSpawnTab::CreateRaw(this, &FAZEditor::SpawnQuestEditorTab)).SetDisplayName(FText::FromString("Quest Editor")).SetMenuType(ETabSpawnerMenuType::Hidden);
+		FOnSpawnTab::CreateRaw(this, &FAZEditor::SpawnQuestEditorTab))
+		.SetDisplayName(FText::FromString("Quest Editor"))
+		.SetMenuType(ETabSpawnerMenuType::Hidden);
 
 	RegisterMenus();
 #endif
@@ -42,6 +45,8 @@ void FAZEditor::ShutdownModule()
 		// 메모리 누수 방지 및 안전한 종료를 위함
 		PropertyModule.UnregisterCustomPropertyTypeLayout("BagDefinition");
 	}
+
+	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(QuestEditorTabName);
 #endif
 }
 

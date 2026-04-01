@@ -9,6 +9,7 @@ public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
+private:
 	TSharedRef<SDockTab> SpawnQuestEditorTab(const FSpawnTabArgs& Args);
 	void RegisterMenus();
 };

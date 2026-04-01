@@ -31,14 +31,17 @@ public:
 	{}
 	SLATE_END_ARGS()
 
-	/** Constructs this widget with InArgs */
 	void Construct(const FArguments& InArgs);
 
 private:
+	static constexpr const TCHAR* QuestTablePath = TEXT("/Game/Blueprints/Data/DataTables/DT_QuestList.DT_QuestList");
+	static constexpr const TCHAR* DialogTablePath = TEXT("/Game/Blueprints/Data/DataTables/DT_Dialog.DT_Dialog");
+	static constexpr const TCHAR* ObjectiveMapPath = TEXT("/Game/Blueprints/Data/DataAssets/DA_ObjectiveMap.DA_ObjectiveMap");
+
+	static const TArray<EDialogType>& GetAllQuestDialogTypes();
+
 	FReply OnOpenQuestCreateWindow();
 	void OnQuestSelected(TSharedPtr<FQuestListItem> SelectedItem);
-
-	UObject* LoadObjectiveMapAsset() const;
 
 	void RefreshQuestList();
 	TSharedRef<ITableRow> OnGenerateQuestRow(TSharedPtr<FQuestListItem> QuestItem, const TSharedRef<STableViewBase>& OwnerTable);
@@ -46,12 +49,18 @@ private:
 
 	FReply OnCreateQuest();
 	FReply OnModifyQuest();
+	FReply SaveQuestInternal(bool bIsModify);
+
+	// 데이터 로드/저장
+	UDataTable* LoadDialogTable() const;
 	void LoadQuestDataToEditorObject(FName RowName);
 	void LoadQuestDialog(UDataTable* DialogTable, FName TagName, EDialogType Type);
 	void SaveQuestDialog(UDataTable* DialogTable, FName TagName, EDialogType Type);
+	void SaveAllDialogs(UDataTable* DialogTable, FName TagName);
+	void LoadAllDialogs(UDataTable* DialogTable, FName TagName);
 
-	bool AlertQuestCreateMessage();
-	void ShowCreateNotification(const FString& Message, bool bSuccessed = true);
+	bool ValidateQuestData() const;
+	void ShowNotification(const FString& Message, bool bSuccessed = true) const;
 	void CloseQuestCreator();
 
 private:
@@ -70,5 +79,5 @@ private:
 	TSharedPtr<SListView<TSharedPtr<FQuestListItem>>> QuestListView;
 	FName PrevTag = NAME_None;
 
-	FAZQuest SetQuestInfo();
+	FAZQuest SetQuestInfo() const;
 };
