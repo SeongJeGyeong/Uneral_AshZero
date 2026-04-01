@@ -31,7 +31,7 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
   </details>
 </details>
 
-## 2. 대화 & 퀘스트 시스템
+## 2. 퀘스트 시스템
 <details>
   <summary><b>보기</b></summary>
   <details>
@@ -46,8 +46,19 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
   </details>
   <details>
     <summary><b>퀘스트 에디터</b></summary>
-    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5826111d01e6d65a40560dac376286c8e7cde1cf/Source/AZEditor/Public/SAZQuestEditorPanel.h#L3-L74
-    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/661ee93c884fcae890ce007e20e912154c798a3f/Source/AZEditor/Private/SAZQuestEditorPanel.cpp#L1-L511
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/03cf4da206d2cd4ca01c40e0fdd19ca2b701a49a/Source/AZEditor/Public/SAZQuestEditorPanel.h#L3-L83
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/03cf4da206d2cd4ca01c40e0fdd19ca2b701a49a/Source/AZEditor/Private/SAZQuestEditorPanel.cpp#L4-L448
+  </details>
+  <details>
+    <summary><b>퀘스트 에디터용 오브젝트</b></summary>
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/03cf4da206d2cd4ca01c40e0fdd19ca2b701a49a/Source/AZEditor/Public/AZQuestCreationObject.h#L3-L69
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/03cf4da206d2cd4ca01c40e0fdd19ca2b701a49a/Source/AZEditor/Private/AZQuestCreationObject.cpp#L3-L53
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/03cf4da206d2cd4ca01c40e0fdd19ca2b701a49a/Source/AZEditor/Public/AZQuestTagEditorObject.h#L3-L19
+  </details>
+  <details>
+    <summary><b>커스텀 에디터 모듈</b></summary>
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/03cf4da206d2cd4ca01c40e0fdd19ca2b701a49a/Source/AZEditor/Public/AZEditorModule.h#L1-L15
+    https://github.com/SeongJeGyeong/Uneral_AshZero/blob/dd7b3f25f878c4d715f14399104183c8cfd45538/Source/AZEditor/Private/AZEditorModule.cpp#L1-L78
   </details>
 </details>
 
