@@ -1,9 +1,7 @@
 #include "AZEditorModule.h"
 #include "Modules/ModuleManager.h"
-
 #include "PropertyEditorModule.h"
 #include "AZBagShapeDetails.h"
-//
 #include "../Public/SAZQuestEditorPanel.h"
 #include "ToolMenus.h"
 
