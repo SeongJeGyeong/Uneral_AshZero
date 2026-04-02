@@ -8,7 +8,6 @@
 #include "UI/HUD/AZStatusBarWidget.h"
 #include "System/Player/Components/AZInteractionUIComponent.h"
 
-// Sets default values for this component's properties
 UAZDialogUIComponent::UAZDialogUIComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -21,7 +20,6 @@ UAZDialogUIComponent::UAZDialogUIComponent()
 	}
 }
 
-// Called when the game starts
 void UAZDialogUIComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -35,7 +33,6 @@ void UAZDialogUIComponent::ConstructUI()
 	if (DialogBoxWidget)
 	{
 		DialogBoxWidget->AddToViewport(1);
-		//DialogBoxWidget->SetVisibility(ESlateVisibility::Collapsed);
 		DialogBoxWidget->OnNativeVisibilityChanged.AddUObject(this, &UAZDialogUIComponent::SetDialogBox);
 		DialogBoxWidget->OnNativeVisibilityChanged.AddUObject(Owner->InteractionUIComp, &UAZInteractionUIComponent::SetVisibleState);
 	}
@@ -65,10 +62,8 @@ void UAZDialogUIComponent::OpenDialogBox(FGameplayTag GiverTag, FEnableButtons E
 	}
 
 	if(DialogBoxWidget->Visibility == ESlateVisibility::Collapsed)
-	{
 		DialogBoxWidget->SetVisibility(ESlateVisibility::Visible);
-	}
-	DialogBoxWidget->SetActorDialog(GiverTag, EnableButtons);
 
+	DialogBoxWidget->SetActorDialog(GiverTag, EnableButtons);
 	Owner->SetHUDVisibility(ESlateVisibility::Collapsed);
 }
