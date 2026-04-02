@@ -7,7 +7,6 @@
 #include "Util/AZDefine.h"
 #include "AZSceneSubsystem.generated.h"
 
-class UMediaPlayer;
 class UAZLoadingScreen;
 class UAZSequenceDataAsset;
 class ULevelSequence;
@@ -54,15 +53,10 @@ private:
 	UFUNCTION()
 	void BeginSeamlessTravel(UWorld* World, const FString& MapName);
 
-	//UPROPERTY()
-	//TObjectPtr<UAZLoadingScreen> LoadingScreen;
 	UPROPERTY()
 	TArray<FText> Tips;
 
 	TSharedPtr<SWidget> LoadingWidget;
-
-	UPROPERTY()
-	TObjectPtr<UMediaPlayer> MediaPlayer;
 
 	UPROPERTY()
 	TObjectPtr<UUserWidget> CurrentWidget;
@@ -72,7 +66,4 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<ULevelSequencePlayer> SequencePlayer;
-
-	//UFUNCTION()
-	//void OnCutsceneEnd();
 };
