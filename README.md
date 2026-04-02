@@ -32,6 +32,7 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
 </details>
 
 ## 2. 퀘스트 시스템
+<img width="1914" height="1075" alt="Image" src="https://github.com/user-attachments/assets/e76f9b30-ab9e-434c-b70d-310e9ef6cd11" />
 <details>
   <summary><b>보기</b></summary>
   <details>
