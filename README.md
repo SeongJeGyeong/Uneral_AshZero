@@ -8,7 +8,7 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
 # 담당 업무
 
 ## 1. 랜덤 맵 생성 시스템
-<img width="647" height="607" alt="Image" src="https://github.com/user-attachments/assets/a9bd3f93-b15b-48c4-8357-d93c92823b04" />
+<img width="200" height="200" alt="Image" src="https://github.com/user-attachments/assets/a9bd3f93-b15b-48c4-8357-d93c92823b04" />
 <details>
   <summary><b>보기</b></summary>
   <details>
