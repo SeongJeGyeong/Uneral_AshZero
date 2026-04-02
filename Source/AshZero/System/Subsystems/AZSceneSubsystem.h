@@ -44,7 +44,12 @@ public:
 	UFUNCTION()
 	void FinishPlayerSequence();
 
+	void PlayBossCutscene(EBossType BossType);
+
 private:
+	UFUNCTION()
+	void FinishBossCutscene();
+	
 	UFUNCTION()
 	void BeginLoadMap(const FWorldContext& WorldContext, const FString& MapName);
 	UFUNCTION()

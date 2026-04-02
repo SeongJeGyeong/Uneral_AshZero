@@ -56,65 +56,23 @@ void UAZBossTriggerComponent::OnTriggerBeginOverlap(UPrimitiveComponent* Overlap
 void UAZBossTriggerComponent::PlayBossCutscene_Multicast_Implementation()
 {
 	UAZSceneSubsystem* SceneSystem = GetWorld()->GetGameInstance()->GetSubsystem<UAZSceneSubsystem>();
-	if (SceneSystem)
+	if (!SceneSystem) return;
+
+	TArray<AActor*> Actors;
+	Owner->GetAttachedActors(Actors);
+	for (auto Actor : Actors)
 	{
-		TArray<AActor*> Actors;
-		Owner->GetAttachedActors(Actors);
-		for (auto Actor : Actors)
+		if (AAZSequencePivot* Pivot = Cast<AAZSequencePivot>(Actor))
 		{
-			if (AAZSequencePivot* Pivot = Cast<AAZSequencePivot>(Actor))
-			{
-				SceneSystem->SequencePivot = Pivot;
-				break;
-			}
-		}
-		if (!SceneSystem->SequencePivot)
-		{
-			SpawnBoss();
-			return;
-		}
-
-		ULevelSequence* Sequence = SceneSystem->GetBossSequence(Owner->BossType);
-		ALevelSequenceActor* OutActor;
-		SequencePlayer = ULevelSequencePlayer::CreateLevelSequencePlayer(
-			GetWorld(),
-			Sequence,
-			FMovieSceneSequencePlaybackSettings(),
-			OutActor
-		);
-
-		if (SequencePlayer)
-		{
-			SequencePlayer->Play();
-		}
-
-		if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
-		{
-			if (APawn* Pawn = PC->GetPawn())
-			{
-				if (AAZPlayerCharacter* Character = Cast<AAZPlayerCharacter>(Pawn))
-				{
-					Character->MoveComp->ResetMoveInput();
-					Character->GetCharacterMovement()->StopMovementImmediately();
-					Character->DisableInput(NULL);
-				}
-			}
-
-			if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(PC))
-			{
-				AZPC->SetHUDVisibility(ESlateVisibility::Collapsed);
-			}
-		}
-
-		UAZSoundManagerSubsystem* SoundSystem = GetWorld()->GetGameInstance()->GetSubsystem<UAZSoundManagerSubsystem>();
-		if (SoundSystem) SoundSystem->PlayBGM(EBGMType::BGM_Boss_Enter);
-
-		SequencePlayer->OnFinished.AddDynamic(this, &UAZBossTriggerComponent::CutsceneEnd);
-		if (Owner->HasAuthority())
-		{
-			SequencePlayer->OnFinished.AddDynamic(this, &UAZBossTriggerComponent::SpawnBoss);
+			SceneSystem->SequencePivot = Pivot;
+			break;
 		}
 	}
+
+	if (Owner->HasAuthority())
+		SceneSystem->OnCutsceneFinished.AddDynamic(this, &UAZBossTriggerComponent::SpawnBoss);
+
+	SceneSystem->PlayBossCutscene(Owner->BossType);
 
 	Owner->OnBossFight.Broadcast(false);
 }
@@ -143,6 +101,9 @@ void UAZBossTriggerComponent::CutsceneEnd()
 
 void UAZBossTriggerComponent::SpawnBoss()
 {
+	if (UAZSceneSubsystem* SceneSystem = GetWorld()->GetGameInstance()->GetSubsystem<UAZSceneSubsystem>())
+		SceneSystem->OnCutsceneFinished.RemoveDynamic(this, &UAZBossTriggerComponent::SpawnBoss);
+
 	if (bBossSpawned) return;
 
 	UAZObjectPoolSubsystem* ObjectPool = GetWorld()->GetSubsystem<UAZObjectPoolSubsystem>();
@@ -150,13 +111,9 @@ void UAZBossTriggerComponent::SpawnBoss()
 
 	AAZBossBase* Boss = ObjectPool->SpawnBoss(Owner->BossType, BossSpawnTransform);
 	bBossSpawned = true;
-	UAZHealthComponent* HealthComp = Boss->FindComponentByClass<UAZHealthComponent>();
-	if (HealthComp)
-	{
-		HealthComp->OnDeath.AddDynamic(this, &UAZBossTriggerComponent::OnBossDeath);
-	}
 
-	SequencePlayer->OnFinished.RemoveDynamic(this, &UAZBossTriggerComponent::SpawnBoss);
+	if (UAZHealthComponent* HealthComp = Boss->FindComponentByClass<UAZHealthComponent>())
+		HealthComp->OnDeath.AddDynamic(this, &UAZBossTriggerComponent::OnBossDeath);
 }
 
 void UAZBossTriggerComponent::OnBossDeath(FVector DeathLocation, AActor* Killer)
