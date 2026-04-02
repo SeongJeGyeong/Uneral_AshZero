@@ -159,16 +159,17 @@ void UAZDialogBoxUI::OnQuestButtonClicked(UButton* ClickedButton)
 	if (!AvailableQuest) return;
 
 	const FAZQuest* CurrentQuest = QuestSubsystem->GetCurrentQuest();
-	const bool bIsCurrentQuest = (CurrentQuest != nullptr) && (AvailableQuest->QuestTag == CurrentQuest->QuestTag);
-	const FGameplayTag QuestTag = bIsCurrentQuest ? CurrentQuest->QuestTag : AvailableQuest->QuestTag;
+	FGameplayTag QuestTag;
 
 	TArray<EDialogType, TInlineAllocator<2>> TypesToTry;
-	if (bIsCurrentQuest)
+	if (CurrentQuest != nullptr && AvailableQuest->QuestTag == CurrentQuest->QuestTag)
 	{
+		QuestTag = CurrentQuest->QuestTag;
 		TypesToTry.Add(CurrentQuest->bIsComplete ? EDialogType::CompletedQuest : EDialogType::InProgressQuest);
 	}
 	else
 	{
+		QuestTag = AvailableQuest->QuestTag;
 		TypesToTry.Add(EDialogType::BeforeAcceptQuest);
 		TypesToTry.Add(EDialogType::AcceptQuest);
 	}

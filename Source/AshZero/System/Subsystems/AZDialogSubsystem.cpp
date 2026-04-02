@@ -3,34 +3,43 @@
 
 #include "System/Subsystems/AZDialogSubsystem.h"
 #include "DataAsset/AZObjectiveTag.h"
+#include "System/Settings/AZDeveloperSettings.h"
 
 void UAZDialogSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
-	FString DataTablePath = TEXT("/Game/Blueprints/Data/DataTables/DT_Dialog.DT_Dialog");
-	DialogDataTable = Cast<UDataTable>(StaticLoadObject(UDataTable::StaticClass(), nullptr, *DataTablePath));
-	if (DialogDataTable)
+	const UAZDeveloperSettings* Settings = GetDefault<UAZDeveloperSettings>();
+	if (!Settings || Settings->DialogDataTable.IsNull() || Settings->ObjectiveData.IsNull()) return;
+
+	//FString DataTablePath = TEXT("/Game/Blueprints/Data/DataTables/DT_Dialog.DT_Dialog");
+	//DialogDataTable = Cast<UDataTable>(StaticLoadObject(UDataTable::StaticClass(), nullptr, *DataTablePath));
+	//if (DialogDataTable)
+	//{
+	//	const FString ContextString(TEXT("Load DialogList"));
+	//	TArray<FAZDialog*> AllRows;
+
+	//	DialogDataTable->GetAllRows(ContextString, AllRows);
+
+	//	for (FAZDialog* Row : AllRows)
+	//	{
+	//		if (Row)
+	//		{
+	//			DialogMap.FindOrAdd(Row->ConversationNPC).Add(*Row);
+	//		}
+	//	}
+	//}
+	DialogDataTable = Settings->DialogDataTable.LoadSynchronous();
+	const FString ContextString(TEXT("Load DialogList"));
+	TArray<FAZDialog*> AllRows;
+	DialogDataTable->GetAllRows(ContextString, AllRows);
+
+	for (FAZDialog* Row : AllRows)
 	{
-		const FString ContextString(TEXT("Load DialogList"));
-		TArray<FAZDialog*> AllRows;
-
-		DialogDataTable->GetAllRows(ContextString, AllRows);
-
-		for (FAZDialog* Row : AllRows)
-		{
-			if (Row)
-			{
-				DialogMap.FindOrAdd(Row->ConversationNPC).Add(*Row);
-			}
-		}
+		if (Row) DialogMap.FindOrAdd(Row->ConversationNPC).Add(*Row);
 	}
 
-	UObject* ObjectiveMap = StaticLoadObject(UAZObjectiveTag::StaticClass(), nullptr, TEXT("/Game/Blueprints/Data/DataAssets/DA_ObjectiveMap.DA_ObjectiveMap"));
-	if (ObjectiveMap)
-	{
-		TagTextDataAsset = Cast<UAZObjectiveTag>(ObjectiveMap);
-	}
+	TagTextDataAsset = Settings->ObjectiveData.LoadSynchronous();
 }
 
 void UAZDialogSubsystem::Deinitialize()

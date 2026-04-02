@@ -13,6 +13,7 @@ class UAZEnemyDataAsset;
 class UAZSequenceDataAsset;
 class UAZUISoundDataAsset;
 class UAZBagShapeDataAsset;
+class UAZObjectiveTag;
 
 UCLASS(Config = Game, defaultconfig, meta = (DisplayName = "AZ Data Settings"))
 class ASHZERO_API UAZDeveloperSettings : public UDeveloperSettings
@@ -26,6 +27,9 @@ public:
 
     UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Quest")
     TSoftObjectPtr<UDataTable> QuestDataTable;
+
+    UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Quest")
+    TSoftObjectPtr<UAZObjectiveTag> ObjectiveData;
 
     UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Dialog")
     TSoftObjectPtr<UDataTable> DialogDataTable;
@@ -57,7 +61,7 @@ public:
     UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Enemy")
     TSoftObjectPtr<UAZEnemyDataAsset> EnemyMap;
 
-    UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Quest")
+    UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Sound")
     TSoftObjectPtr<UAZUISoundDataAsset> UISoundDataTable;
 
     //아이템 데이터 테이블
