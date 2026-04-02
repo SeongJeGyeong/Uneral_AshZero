@@ -123,7 +123,6 @@ void UAZSceneSubsystem::PlayBossCutscene(EBossType BossType)
 	// SequencePivot은 호출 전에 외부에서 세팅되어 있어야 함
 	if (!SequencePivot)
 	{
-		// 피봇 없으면 시퀀스 스킵 → 바로 후속 로직 진행
 		OnCutsceneFinished.Broadcast();
 		return;
 	}
@@ -136,7 +135,6 @@ void UAZSceneSubsystem::PlayBossCutscene(EBossType BossType)
 		return;
 	}
 
-	// 시퀀스 플레이어 생성 & 재생
 	ALevelSequenceActor* OutActor = nullptr;
 	SequencePlayer = ULevelSequencePlayer::CreateLevelSequencePlayer(
 		GetWorld(),
@@ -151,7 +149,6 @@ void UAZSceneSubsystem::PlayBossCutscene(EBossType BossType)
 		SequencePlayer->OnFinished.AddDynamic(this, &UAZSceneSubsystem::FinishBossCutscene);
 	}
 
-	// 플레이어 입력 차단 + HUD 숨김
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
 	{
 		if (AAZPlayerCharacter* Character = Cast<AAZPlayerCharacter>(PC->GetPawn()))
@@ -165,7 +162,6 @@ void UAZSceneSubsystem::PlayBossCutscene(EBossType BossType)
 			AZPC->SetHUDVisibility(ESlateVisibility::Collapsed);
 	}
 
-	// 보스 등장 BGM
 	if (UAZSoundManagerSubsystem* SoundSystem = GetWorld()->GetGameInstance()->GetSubsystem<UAZSoundManagerSubsystem>())
 		SoundSystem->PlayBGM(EBGMType::BGM_Boss_Enter);
 }
@@ -178,7 +174,6 @@ void UAZSceneSubsystem::FinishBossCutscene()
 		SequencePlayer = nullptr;
 	}
 
-	// 플레이어 입력 복원 + HUD 복원
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
 	{
 		if (APawn* Pawn = PC->GetPawn())
@@ -188,11 +183,9 @@ void UAZSceneSubsystem::FinishBossCutscene()
 			AZPC->SetHUDVisibility(ESlateVisibility::HitTestInvisible);
 	}
 
-	// 보스전 BGM으로 전환
 	if (UAZSoundManagerSubsystem* SoundSystem = GetWorld()->GetGameInstance()->GetSubsystem<UAZSoundManagerSubsystem>())
 		SoundSystem->PlayBGM(EBGMType::BGM_Boss);
 
-	// 외부 리스너에게 컷신 종료 알림 (보스 스폰 등)
 	OnCutsceneFinished.Broadcast();
 }
 
