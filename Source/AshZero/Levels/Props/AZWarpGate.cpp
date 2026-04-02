@@ -16,10 +16,8 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Weapon/AZWeapon.h"
 
-// Sets default values
 AAZWarpGate::AAZWarpGate()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
 	Root = CreateDefaultSubobject<USceneComponent>("RootScene");
@@ -35,7 +33,6 @@ AAZWarpGate::AAZWarpGate()
 	RenderCaptureCube->SetupAttachment(RootComponent);
 }
 
-// Called when the game starts or when spawned
 void AAZWarpGate::BeginPlay()
 {
 	Super::BeginPlay();
@@ -67,8 +64,7 @@ void AAZWarpGate::OnTriggerEndOverlap(UPrimitiveComponent* OverlappedComponent, 
 
 void AAZWarpGate::StartWarpProgress()
 {
-	if (bWarpInProgress)
-		return;
+	if (bWarpInProgress) return;
 
 	bWarpInProgress = true;
 	WarpElapsedTime = 0.f;
@@ -97,16 +93,12 @@ void AAZWarpGate::UpdateWarpProgress()
 	UpdateWarpProgress_Multicast(Progress);
 
 	if (WarpElapsedTime >= WarpDuration)
-	{
 		CompleteWarp();
-	}
-
 }
 
 void AAZWarpGate::ResetWarpProgress()
 {
-	if (!bWarpInProgress)
-		return;
+	if (!bWarpInProgress) return;
 
 	bWarpInProgress = false;
 	WarpElapsedTime = 0.f;
@@ -124,7 +116,6 @@ void AAZWarpGate::CompleteWarp()
 	bWarpInProgress = false;
 
 	ShowWarpUI_Multicast(false);
-
 	CompleteWarp_Multicast();
 }
 
@@ -190,31 +181,18 @@ void AAZWarpGate::CreateWarpWidget_Multicast_Implementation()
 {
 	if (!GetWorld()) return;
 
-	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
-	if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(PC))
-	{
+	if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
 		AZPC->CreateWarpWidget();
-	}
 }
 
 void AAZWarpGate::ShowWarpUI_Multicast_Implementation(bool bShow)
 {
-	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
-	{
-		if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(PC))
-		{
-			AZPC->ShowWarpUI(bShow);
-		}
-	}
+	if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
+		AZPC->ShowWarpUI(bShow);
 }
 
 void AAZWarpGate::UpdateWarpProgress_Multicast_Implementation(float Progress)
 {
-	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
-	{
-		if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(PC))
-		{
-			AZPC->UpdateWarpProgress(Progress);
-		}
-	}
+	if (AAZPlayerController* AZPC = Cast<AAZPlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
+		AZPC->UpdateWarpProgress(Progress);
 }
