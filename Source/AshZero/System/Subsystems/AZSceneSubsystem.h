@@ -33,9 +33,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void HideLoadingScreen();
 
-	//void PlayCutscene(ECutsceneType Type);
-	//void StopCutscene();
-
 	FOnCutsceneFinished OnCutsceneFinished;
 
 	ULevelSequence* GetBossSequence(EBossType Type);
