@@ -137,6 +137,7 @@ Kog 산학 협력을 통해 Return Alive 리소스를 활용한 언리얼 엔진
   </details>
   <details>
     <summary><b>시퀀스 재생</b></summary>
+    <img width="340" height="192" alt="Image" src="https://github.com/user-attachments/assets/49899d7c-a15a-4492-b39a-0826bd31dd9f" />
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5d5e1b267b3386fd58a00e5d8fb6f31e0edbb04d/Source/AshZero/System/Subsystems/AZSceneSubsystem.cpp#L74-L190
     https://github.com/SeongJeGyeong/Uneral_AshZero/blob/5d5e1b267b3386fd58a00e5d8fb6f31e0edbb04d/Source/AshZero/Levels/Props/AZBossTriggerComponent.cpp#L4-L131
   </details>
